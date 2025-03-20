@@ -1,0 +1,18 @@
+<h2>Image Gallery</h2>
+<input type="file" multiple (change)="onUpload($event)" />
+
+<div *ngFor="let image of images" class="image-card">
+  <img [src]="image.url + '?' + image.id" [alt]="image.name" width="200" />
+  <p>{{ image.name }}</p>
+  <input type="file" (change)="onEditImage($event, image.id)" />
+  <button (click)="onDeleteImage(image.id)">Delete</button>
+</div>
+
+
+// gallery.component.css
+.image-card {
+  border: 1px solid #ccc;
+  padding: 12px;
+  margin-bottom: 10px;
+  width: fit-content;
+}

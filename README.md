@@ -1,59 +1,160 @@
-# ImageViewerFrontend
+# Image Viewer Application
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.3.
+A modern Angular application for viewing and editing images in a structured grid layout. This application allows users to load images from a local folder, view them in a 2×2 grid, and perform basic image editing operations like cropping and rotation.
 
-## Development server
+## Features
 
-To start a local development server, run:
+- **Folder Selection**: Easy folder selection for loading multiple images at once
+- **Grid View**: Display images in a 2×2 grid layout
+- **Side Panel**: Additional images available in a scrollable side panel
+- **Image Editing**:
+  - Crop images with an interactive cropper
+  - Rotate images in 90-degree increments
+- **Responsive Design**: Works seamlessly on desktop and tablet devices
+- **Local Storage**: Images persist between sessions using browser storage
 
-```bash
-ng serve
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+- [Node.js](https://nodejs.org/) (version 16.x or higher)
+- [npm](https://www.npmjs.com/) (usually comes with Node.js)
+- [Angular CLI](https://angular.io/cli) (version 17.x)
+
+## Setup Instructions
+
+1. **Clone the Repository**
+   ```bash
+   git clone <repository-url>
+   cd ImageViewer/image-viewer-frontend
+   ```
+
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Install Required Angular Material Packages**
+   ```bash
+   ng add @angular/material
+   npm install ngx-image-cropper
+   ```
+
+4. **Start Development Server**
+   ```bash
+   ng serve
+   ```
+
+5. **Access the Application**
+   - Open your browser and navigate to `http://localhost:4200`
+   - The application should now be running
+
+## Project Structure
+
+```
+image-viewer-frontend/
+├── src/
+│   ├── app/
+│   │   ├── components/
+│   │   │   ├── upload/
+│   │   │   │   └── upload.component.ts
+│   │   │   ├── gallery/
+│   │   │   │   └── gallery.component.ts
+│   │   │   └── image-editor/
+│   │   │       └── image-editor.component.ts
+│   │   ├── services/
+│   │   │   └── image.service.ts
+│   │   ├── models/
+│   │   │   └── image.model.ts
+│   │   ├── app.component.ts
+│   │   └── app.routes.ts
+│   ├── assets/
+│   └── styles.scss
+├── package.json
+└── angular.json
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Component Overview
 
-## Code scaffolding
+### 1. Upload Component
+- Entry point for loading images
+- Handles folder selection and image filtering
+- Routes to gallery view after successful upload
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+### 2. Gallery Component
+- Displays images in a 2×2 grid
+- Shows additional images in side panel
+- Enables drag-and-drop between panel and grid
+- Click on image opens editor dialog
 
-```bash
-ng generate component component-name
-```
+### 3. Image Editor Component
+- Provides image editing capabilities
+- Crop functionality with aspect ratio control
+- Rotation controls
+- Save/Cancel options
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Usage Guide
 
-```bash
-ng generate --help
-```
+1. **Loading Images**
+   - Click "Select Image Folder" button
+   - Choose a folder containing images
+   - Wait for images to load
+   - You'll be automatically redirected to the gallery view
 
-## Building
+2. **Gallery View**
+   - Main grid shows up to 4 images
+   - Side panel shows all loaded images
+   - Drag images from panel to grid to rearrange
+   - Click any image to open editor
 
-To build the project run:
+3. **Editing Images**
+   - Click an image to open editor
+   - Use crop tool to select area
+   - Use rotation buttons to rotate image
+   - Click Save to keep changes or Cancel to discard
 
-```bash
-ng build
-```
+## Development Notes
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+### Key Dependencies
+- @angular/material: UI components
+- ngx-image-cropper: Image cropping functionality
+- @angular/cdk: Drag and drop functionality
 
-## Running unit tests
+### Browser Support
+- Chrome (latest)
+- Firefox (latest)
+- Edge (latest)
+- Safari (latest)
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+### Local Storage
+- Images are stored in browser's localStorage
+- Maximum storage size depends on browser (usually 5-10 MB)
+- Clear browser data to reset storage
 
-```bash
-ng test
-```
+## Troubleshooting
 
-## Running end-to-end tests
+1. **Images Not Loading**
+   - Check if folder contains supported image formats (JPG, PNG, GIF)
+   - Ensure images are not too large (recommend < 5MB each)
+   - Check browser console for specific errors
 
-For end-to-end (e2e) testing, run:
+2. **Editor Not Opening**
+   - Clear browser cache
+   - Check console for JavaScript errors
+   - Ensure all dependencies are installed correctly
 
-```bash
-ng e2e
-```
+3. **Performance Issues**
+   - Reduce number of loaded images
+   - Check image sizes
+   - Clear browser cache and reload
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## Contributing
 
-## Additional Resources
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details
