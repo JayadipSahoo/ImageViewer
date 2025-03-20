@@ -5,9 +5,10 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem, CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import { ImageService } from '../../services/image.service';
 import { ImageEditorComponent } from '../image-editor/image-editor.component';
+import { BehaviorSubject } from 'rxjs';
 
 @Component({
   selector: 'app-gallery',
@@ -24,27 +25,47 @@ import { ImageEditorComponent } from '../image-editor/image-editor.component';
   template: `
     <div class="gallery-container">
       <div class="main-grid">
-        <mat-grid-list cols="2" rowHeight="1:1" gutterSize="16">
-          <mat-grid-tile *ngFor="let image of gridImages; let i = index">
-            <mat-card class="image-card">
-              <img [src]="image.url" [alt]="image.name">
-              <div class="image-overlay">
-                <button mat-icon-button color="primary" (click)="openEditor(image)">
-                  <mat-icon>edit</mat-icon>
-                </button>
-              </div>
-            </mat-card>
-          </mat-grid-tile>
-        </mat-grid-list>
+        <div class="drop-zone" 
+             cdkDropList
+             #mainDropList="cdkDropList"
+             [cdkDropListData]="[selectedImage]"
+             [cdkDropListConnectedTo]="[sideDropList]"
+             (cdkDropListDropped)="onMainDrop($event)"
+             [class.has-image]="selectedImage">
+          <div *ngIf="!selectedImage" class="drop-zone-content">
+            <mat-icon>cloud_upload</mat-icon>
+            <p>Drag and drop an image here to edit</p>
+          </div>
+          <mat-card *ngIf="selectedImage" class="image-card" cdkDrag [cdkDragDisabled]="true">
+            <img [src]="selectedImage.url" [alt]="selectedImage.name">
+            <div class="image-overlay">
+              <button mat-icon-button color="primary" (click)="openEditor(selectedImage)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button color="primary" (click)="downloadImage(selectedImage)">
+                <mat-icon>download</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="clearSelected()">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </mat-card>
+        </div>
       </div>
 
       <div class="side-panel">
         <h3>All Images</h3>
-        <div class="image-list" cdkDropList (cdkDropListDropped)="drop($event)">
-          <div *ngFor="let image of allImages; let i = index" 
+        <div class="image-list" 
+             cdkDropList
+             #sideDropList="cdkDropList"
+             [cdkDropListData]="allImages"
+             [cdkDropListConnectedTo]="[mainDropList]"
+             (cdkDropListDropped)="onSideDrop($event)">
+          <div *ngFor="let image of allImages" 
                class="image-item"
                cdkDrag
-               (click)="selectForGrid(image, i)">
+               [class.selected]="selectedImage?.id === image.id"
+               (click)="selectImage(image)">
             <img [src]="image.url" [alt]="image.name">
             <div class="image-item-overlay">
               <button mat-icon-button (click)="$event.stopPropagation(); openEditor(image)">
@@ -70,19 +91,64 @@ import { ImageEditorComponent } from '../image-editor/image-editor.component';
     .main-grid {
       flex: 1;
       min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .drop-zone {
+      width: 100%;
+      height: 100%;
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f5;
+      transition: all 0.3s ease;
+      min-height: 400px;
+
+      &.cdk-drop-list-dragging {
+        border-color: #1976d2;
+        background: rgba(25, 118, 210, 0.1);
+      }
+
+      &.has-image {
+        border-style: solid;
+        border-color: #1976d2;
+        background: #fff;
+      }
+
+      .drop-zone-content {
+        text-align: center;
+        color: #666;
+
+        mat-icon {
+          font-size: 48px;
+          width: 48px;
+          height: 48px;
+          margin-bottom: 16px;
+        }
+
+        p {
+          margin: 0;
+          font-size: 16px;
+        }
+      }
     }
 
     .image-card {
       width: 100%;
       height: 100%;
-      cursor: pointer;
       overflow: hidden;
       position: relative;
+      background: transparent;
+      box-shadow: none;
 
       img {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
       }
 
       .image-overlay {
@@ -95,11 +161,17 @@ import { ImageEditorComponent } from '../image-editor/image-editor.component';
         display: flex;
         align-items: center;
         justify-content: center;
+        gap: 16px;
         opacity: 0;
         transition: opacity 0.3s;
 
         button {
           background: white;
+          
+          &[color="warn"] {
+            background: #f44336;
+            color: white;
+          }
         }
       }
 
@@ -129,6 +201,11 @@ import { ImageEditorComponent } from '../image-editor/image-editor.component';
       grid-template-columns: repeat(2, 1fr);
       gap: 16px;
       padding: 4px;
+      min-height: 200px;
+
+      &.cdk-drop-list-dragging .image-item:not(.cdk-drag-placeholder) {
+        transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+      }
     }
 
     .image-item {
@@ -137,6 +214,16 @@ import { ImageEditorComponent } from '../image-editor/image-editor.component';
       cursor: pointer;
       border-radius: 4px;
       overflow: hidden;
+      border: 2px solid transparent;
+      transition: transform 0.2s;
+
+      &.selected {
+        border-color: #1976d2;
+      }
+
+      &:hover {
+        transform: translateY(-2px);
+      }
 
       img {
         width: 100%;
@@ -187,8 +274,8 @@ import { ImageEditorComponent } from '../image-editor/image-editor.component';
 })
 export class GalleryComponent implements OnInit {
   allImages: any[] = [];
-  gridImages: any[] = [];
-  selectedIndices: number[] = [0, 1, 2, 3]; // Track which images are in the grid
+  selectedImage: any = null;
+  private imagesSubject = new BehaviorSubject<any[]>([]);
 
   constructor(
     private imageService: ImageService,
@@ -197,48 +284,51 @@ export class GalleryComponent implements OnInit {
 
   ngOnInit() {
     this.loadImages();
+    
+    // Subscribe to image updates
+    this.imagesSubject.subscribe(images => {
+      this.allImages = images;
+      // Update selected image reference if it exists in the new image list
+      if (this.selectedImage) {
+        const updatedImage = images.find(img => img.id === this.selectedImage.id);
+        if (updatedImage) {
+          this.selectedImage = updatedImage;
+        }
+      }
+    });
   }
 
   loadImages() {
     this.imageService.getImages().subscribe(images => {
-      this.allImages = images;
-      this.updateGridImages();
+      this.imagesSubject.next(images);
     });
   }
 
-  updateGridImages() {
-    // Update grid images based on selected indices
-    this.gridImages = this.selectedIndices
-      .map(index => this.allImages[index])
-      .filter(img => img); // Filter out any undefined entries
-    
-    // If we have fewer than 4 images in the grid, fill from the start
-    while (this.gridImages.length < 4 && this.allImages.length > this.gridImages.length) {
-      const nextIndex = this.allImages.findIndex(img => !this.gridImages.includes(img));
-      if (nextIndex !== -1) {
-        this.gridImages.push(this.allImages[nextIndex]);
-        this.selectedIndices[this.gridImages.length - 1] = nextIndex;
-      }
-    }
+  selectImage(image: any) {
+    this.selectedImage = image;
   }
 
-  selectForGrid(image: any, index: number) {
-    const gridIndex = this.selectedIndices.indexOf(index);
-    if (gridIndex === -1) {
-      // If not in grid, replace the first image
-      this.selectedIndices[0] = index;
-      // Rotate other indices
-      this.selectedIndices = [
-        ...this.selectedIndices.slice(0, 1),
-        ...this.selectedIndices.slice(1).map(i => 
-          i >= this.allImages.length ? 0 : i
-        )
-      ];
+  clearSelected() {
+    this.selectedImage = null;
+  }
+
+  onMainDrop(event: CdkDragDrop<any[]>) {
+    if (event.previousContainer === event.container) {
+      return;
     }
-    this.updateGridImages();
+
+    const draggedImage = event.previousContainer.data[event.previousIndex];
+    this.selectImage(draggedImage);
+  }
+
+  onSideDrop(event: CdkDragDrop<any[]>) {
+    if (event.previousContainer === event.container) {
+      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+    }
   }
 
   openEditor(image: any) {
+    console.log('Opening editor for image:', image);
     const dialogRef = this.dialog.open(ImageEditorComponent, {
       width: '90vw',
       maxWidth: '1200px',
@@ -246,22 +336,42 @@ export class GalleryComponent implements OnInit {
     });
 
     dialogRef.afterClosed().subscribe(result => {
+      console.log('Editor closed with result:', result);
       if (result) {
         if (result.saveAsNew) {
+          console.log('Saving as new image');
           // Add as a new image
-          this.imageService.uploadImages([result.file]).subscribe(newImages => {
-            if (newImages && newImages.length > 0) {
-              // Add the new image to the grid
-              const lastIndex = this.allImages.length;
-              this.selectedIndices = [lastIndex, ...this.selectedIndices.slice(0, 3)];
-              this.loadImages(); // Reload all images to get the new one
+          this.imageService.uploadImages([result.file]).subscribe({
+            next: (newImages) => {
+              console.log('New images uploaded:', newImages);
+              if (newImages && newImages.length > 0) {
+                const updatedImages = [...this.allImages, ...newImages];
+                this.imagesSubject.next(updatedImages);
+                this.selectedImage = newImages[0];
+                console.log('Gallery updated with new image');
+              }
+            },
+            error: (error) => {
+              console.error('Error uploading new image:', error);
             }
           });
         } else {
+          console.log('Updating existing image');
           // Update existing image
-          this.imageService.updateImage(image.id, result.file).subscribe(updatedImage => {
-            if (updatedImage) {
-              this.loadImages(); // Reload all images to get the updated one
+          this.imageService.updateImage(image.id, result.file).subscribe({
+            next: (updatedImage) => {
+              console.log('Image updated:', updatedImage);
+              if (updatedImage) {
+                const updatedImages = this.allImages.map(img => 
+                  img.id === updatedImage.id ? updatedImage : img
+                );
+                this.imagesSubject.next(updatedImages);
+                this.selectedImage = updatedImage;
+                console.log('Gallery updated with edited image');
+              }
+            },
+            error: (error) => {
+              console.error('Error updating image:', error);
             }
           });
         }
@@ -269,31 +379,27 @@ export class GalleryComponent implements OnInit {
     });
   }
 
-  deleteImage(image: any) {
-    // Remove from selected indices
-    this.selectedIndices = this.selectedIndices.map(index => 
-      index > this.allImages.indexOf(image) ? index - 1 : index
-    );
-    
-    // Remove from arrays
-    this.allImages = this.allImages.filter(img => img.id !== image.id);
-    this.updateGridImages();
-    
-    // Save to service
-    this.imageService.deleteImage(image.id).subscribe();
+  downloadImage(image: any) {
+    const link = document.createElement('a');
+    link.href = image.url;
+    link.download = image.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
-  drop(event: CdkDragDrop<any[]>) {
-    moveItemInArray(this.allImages, event.previousIndex, event.currentIndex);
+  deleteImage(image: any) {
+    if (this.selectedImage?.id === image.id) {
+      this.selectedImage = null;
+    }
     
-    // Update selected indices after drag
-    this.selectedIndices = this.selectedIndices.map(index => {
-      if (index === event.previousIndex) return event.currentIndex;
-      if (index === event.currentIndex) return event.previousIndex;
-      return index;
+    const updatedImages = this.allImages.filter(img => img.id !== image.id);
+    this.imagesSubject.next(updatedImages);
+    this.imageService.deleteImage(image.id).subscribe({
+      error: (error) => {
+        console.error('Error deleting image:', error);
+      }
     });
-    
-    this.updateGridImages();
   }
 }
 

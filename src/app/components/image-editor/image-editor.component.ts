@@ -2,10 +2,11 @@ import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { ImageCropperComponent, ImageCroppedEvent, LoadedImage } from 'ngx-image-cropper';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { FormsModule } from '@angular/forms';
+import { ImageCropperComponent, ImageCroppedEvent } from 'ngx-image-cropper';
+import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-image-editor',
@@ -14,10 +15,10 @@ import { FormsModule } from '@angular/forms';
     CommonModule,
     MatDialogModule,
     MatButtonModule,
-    MatIconModule,
-    ImageCropperComponent,
     MatCheckboxModule,
-    FormsModule
+    FormsModule,
+    ImageCropperComponent,
+    MatIconModule
   ],
   template: `
     <div class="editor-container">
@@ -29,19 +30,17 @@ import { FormsModule } from '@angular/forms';
           [maintainAspectRatio]="true"
           [aspectRatio]="4/3"
           [resizeToWidth]="800"
-          (imageCropped)="imageCropped($event)"
-          [transform]="transform"
-          (imageLoaded)="imageLoaded($event)"
+          format="png"
           [roundCropper]="false"
-          [canvasRotation]="transform.rotate"
-          [style.display]="isImageLoaded ? 'block' : 'none'"
+          [canvasRotation]="rotation"
+          [transform]="transform"
+          [alignImage]="'center'"
+          (imageCropped)="imageCropped($event)"
+          (loadImageFailed)="loadImageFailed()"
+          (imageLoaded)="imageLoaded()"
         ></image-cropper>
-        
-        <div class="loading-message" *ngIf="!isImageLoaded">
-          Loading image...
-        </div>
-        
-        <div class="editor-controls" *ngIf="isImageLoaded">
+
+        <div class="editor-controls">
           <button mat-icon-button (click)="rotateLeft()" matTooltip="Rotate Left">
             <mat-icon>rotate_left</mat-icon>
           </button>
@@ -54,59 +53,38 @@ import { FormsModule } from '@angular/forms';
           <button mat-icon-button (click)="flipVertical()" matTooltip="Flip Vertical">
             <mat-icon style="transform: rotate(90deg)">flip</mat-icon>
           </button>
+          <button mat-icon-button (click)="downloadEditedImage()" color="primary" matTooltip="Download" [disabled]="!croppedImage?.blob">
+            <mat-icon>download</mat-icon>
+          </button>
         </div>
       </div>
 
-      <div class="save-options">
+      <div class="editor-footer">
         <mat-checkbox [(ngModel)]="saveAsNew">Save as new image</mat-checkbox>
-      </div>
-
-      <div class="dialog-actions">
-        <button mat-button (click)="dialogRef.close()">Cancel</button>
-        <button mat-raised-button color="primary" (click)="save()" [disabled]="!isImageLoaded">
-          {{ saveAsNew ? 'Save as New' : 'Save' }}
-        </button>
+        <div class="action-buttons">
+          <button mat-button (click)="cancel()">Cancel</button>
+          <button mat-raised-button color="primary" (click)="save()" [disabled]="!croppedImage?.blob">
+            {{ saveAsNew ? 'Save as New' : 'Save' }}
+          </button>
+        </div>
       </div>
     </div>
   `,
   styles: [`
     .editor-container {
       padding: 20px;
-      max-width: 900px;
       max-height: 90vh;
       display: flex;
       flex-direction: column;
       gap: 20px;
-
-      h2 {
-        margin: 0;
-        color: #1976d2;
-      }
     }
 
     .editor-content {
       flex: 1;
-      min-height: 400px;
+      min-height: 0;
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      
-      image-cropper {
-        flex: 1;
-        min-height: 300px;
-        background: #f5f5f5;
-        border-radius: 4px;
-      }
-    }
-
-    .loading-message {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 300px;
-      background: #f5f5f5;
-      border-radius: 4px;
-      color: #666;
+      gap: 16px;
     }
 
     .editor-controls {
@@ -115,65 +93,69 @@ import { FormsModule } from '@angular/forms';
       gap: 16px;
       padding: 16px;
       background: #f5f5f5;
-      border-radius: 4px;
-
-      button {
-        background: white;
-      }
+      border-radius: 8px;
     }
 
-    .save-options {
-      padding: 8px 0;
-    }
-
-    .dialog-actions {
+    .editor-footer {
       display: flex;
-      justify-content: flex-end;
-      gap: 16px;
-      padding-top: 16px;
-      border-top: 1px solid #eee;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    image-cropper {
+      max-height: 60vh;
+      background: #f5f5f5;
+      border-radius: 8px;
+      overflow: hidden;
     }
   `]
 })
 export class ImageEditorComponent {
-  transform: { rotate: number; flipH: boolean; flipV: boolean } = {
-    rotate: 0,
+  saveAsNew = false;
+  croppedImage: ImageCroppedEvent | null = null;
+  rotation = 0;
+  transform = {
+    scale: 1,
     flipH: false,
     flipV: false
   };
-
-  croppedImage: string | null = null;
   isImageLoaded = false;
-  saveAsNew = false;
 
   constructor(
     public dialogRef: MatDialogRef<ImageEditorComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { image: { file: File, name: string, type: string } }
-  ) {}
-
-  imageLoaded(image: LoadedImage) {
-    this.isImageLoaded = true;
-    console.log('Image loaded', image);
+    @Inject(MAT_DIALOG_DATA) public data: any,
+    private snackBar: MatSnackBar
+  ) {
+    console.log('Editor opened with image:', data.image);
   }
 
   imageCropped(event: ImageCroppedEvent) {
-    if (event.base64) {
-      this.croppedImage = event.base64;
-    }
+    console.log('Image cropped:', event);
+    this.croppedImage = event;
+  }
+
+  imageLoaded() {
+    console.log('Image loaded successfully');
+    this.isImageLoaded = true;
+  }
+
+  loadImageFailed() {
+    console.error('Failed to load image');
+    this.snackBar.open('Failed to load image', 'Close', { duration: 3000 });
   }
 
   rotateLeft() {
-    this.transform = {
-      ...this.transform,
-      rotate: (this.transform.rotate - 90) % 360
-    };
+    this.rotation = (this.rotation - 90) % 360;
   }
 
   rotateRight() {
-    this.transform = {
-      ...this.transform,
-      rotate: (this.transform.rotate + 90) % 360
-    };
+    this.rotation = (this.rotation + 90) % 360;
   }
 
   flipHorizontal() {
@@ -190,26 +172,62 @@ export class ImageEditorComponent {
     };
   }
 
-  save() {
-    if (this.croppedImage) {
-      fetch(this.croppedImage)
-        .then(res => res.blob())
-        .then(blob => {
-          const fileName = this.saveAsNew 
-            ? `edited_${this.data.image.name}`
-            : this.data.image.name;
-            
-          const file = new File([blob], fileName, {
-            type: this.data.image.type
-          });
-          
-          this.dialogRef.close({
-            file,
-            saveAsNew: this.saveAsNew
-          });
-        });
-    } else {
-      this.dialogRef.close(null);
+  downloadEditedImage() {
+    console.log('Attempting to download image');
+    if (!this.croppedImage?.blob) {
+      console.error('No cropped image blob available');
+      this.snackBar.open('No image to download', 'Close', { duration: 3000 });
+      return;
     }
+
+    try {
+      // Create download link using the blob directly
+      const url = window.URL.createObjectURL(this.croppedImage.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `edited_${this.data.image.name}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log('Download completed');
+      this.snackBar.open('Image downloaded successfully', 'Close', { duration: 3000 });
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      this.snackBar.open('Failed to download image', 'Close', { duration: 3000 });
+    }
+  }
+
+  async save() {
+    console.log('Save initiated');
+    if (!this.croppedImage?.blob) {
+      console.error('No cropped image blob available');
+      this.snackBar.open('No image to save', 'Close', { duration: 3000 });
+      return;
+    }
+
+    try {
+      console.log('Processing cropped image');
+      
+      // Create file from blob directly
+      const fileName = this.saveAsNew ? `edited_${this.data.image.name}` : this.data.image.name;
+      const file = new File([this.croppedImage.blob], fileName, { type: 'image/png' });
+      
+      console.log('Closing dialog with result:', { file, saveAsNew: this.saveAsNew });
+      this.dialogRef.close({
+        file,
+        saveAsNew: this.saveAsNew
+      });
+      
+      this.snackBar.open('Image saved successfully', 'Close', { duration: 3000 });
+    } catch (error) {
+      console.error('Error saving image:', error);
+      this.snackBar.open('Failed to save image', 'Close', { duration: 3000 });
+    }
+  }
+
+  cancel() {
+    this.dialogRef.close();
   }
 }
