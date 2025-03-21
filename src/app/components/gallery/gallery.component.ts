@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem, CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
-import { ImageService } from '../../services/image.service';
+import { ImageService, ImageData } from '../../services/image.service';
 import { ImageEditorComponent } from '../image-editor/image-editor.component';
 import { BehaviorSubject } from 'rxjs';
 
@@ -28,7 +28,7 @@ import { BehaviorSubject } from 'rxjs';
         <div class="drop-zone" 
              cdkDropList
              #mainDropList="cdkDropList"
-             [cdkDropListData]="[selectedImage]"
+             [cdkDropListData]="selectedImageArray"
              [cdkDropListConnectedTo]="[sideDropList]"
              (cdkDropListDropped)="onMainDrop($event)"
              [class.has-image]="selectedImage">
@@ -273,9 +273,14 @@ import { BehaviorSubject } from 'rxjs';
   `]
 })
 export class GalleryComponent implements OnInit {
-  allImages: any[] = [];
-  selectedImage: any = null;
-  private imagesSubject = new BehaviorSubject<any[]>([]);
+  allImages: ImageData[] = [];
+  selectedImage: ImageData | null = null;
+  private imagesSubject = new BehaviorSubject<ImageData[]>([]);
+
+  // Computed property to handle the selected image array for drag and drop
+  get selectedImageArray(): ImageData[] {
+    return this.selectedImage ? [this.selectedImage] : [];
+  }
 
   constructor(
     private imageService: ImageService,
@@ -290,7 +295,7 @@ export class GalleryComponent implements OnInit {
       this.allImages = images;
       // Update selected image reference if it exists in the new image list
       if (this.selectedImage) {
-        const updatedImage = images.find(img => img.id === this.selectedImage.id);
+        const updatedImage = images.find(img => img.id === this.selectedImage?.id);
         if (updatedImage) {
           this.selectedImage = updatedImage;
         }
@@ -304,7 +309,7 @@ export class GalleryComponent implements OnInit {
     });
   }
 
-  selectImage(image: any) {
+  selectImage(image: ImageData) {
     this.selectedImage = image;
   }
 
@@ -312,7 +317,7 @@ export class GalleryComponent implements OnInit {
     this.selectedImage = null;
   }
 
-  onMainDrop(event: CdkDragDrop<any[]>) {
+  onMainDrop(event: CdkDragDrop<ImageData[]>) {
     if (event.previousContainer === event.container) {
       return;
     }
@@ -321,13 +326,13 @@ export class GalleryComponent implements OnInit {
     this.selectImage(draggedImage);
   }
 
-  onSideDrop(event: CdkDragDrop<any[]>) {
+  onSideDrop(event: CdkDragDrop<ImageData[]>) {
     if (event.previousContainer === event.container) {
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
     }
   }
 
-  openEditor(image: any) {
+  openEditor(image: ImageData) {
     console.log('Opening editor for image:', image);
     const dialogRef = this.dialog.open(ImageEditorComponent, {
       width: '90vw',
@@ -340,24 +345,26 @@ export class GalleryComponent implements OnInit {
       if (result) {
         if (result.saveAsNew) {
           console.log('Saving as new image');
-          // Add as a new image
-          this.imageService.uploadImages([result.file]).subscribe({
-            next: (newImages) => {
-              console.log('New images uploaded:', newImages);
-              if (newImages && newImages.length > 0) {
-                const updatedImages = [...this.allImages, ...newImages];
-                this.imagesSubject.next(updatedImages);
-                this.selectedImage = newImages[0];
-                console.log('Gallery updated with new image');
-              }
+          const newImage: ImageData = {
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
+            name: `edited_${image.name}`,
+            file: result.file
+          };
+
+          this.imageService.saveNewImage(newImage).subscribe({
+            next: (savedImage) => {
+              console.log('New image saved:', savedImage);
+              // Clear the workspace
+              this.selectedImage = null;
+              // Refresh the images list
+              this.loadImages();
             },
             error: (error) => {
-              console.error('Error uploading new image:', error);
+              console.error('Error saving new image:', error);
             }
           });
         } else {
           console.log('Updating existing image');
-          // Update existing image
           this.imageService.updateImage(image.id, result.file).subscribe({
             next: (updatedImage) => {
               console.log('Image updated:', updatedImage);
@@ -379,7 +386,9 @@ export class GalleryComponent implements OnInit {
     });
   }
 
-  downloadImage(image: any) {
+  downloadImage(image: ImageData) {
+    if (!image.url) return;
+    
     const link = document.createElement('a');
     link.href = image.url;
     link.download = image.name;
@@ -388,14 +397,16 @@ export class GalleryComponent implements OnInit {
     document.body.removeChild(link);
   }
 
-  deleteImage(image: any) {
+  deleteImage(image: ImageData) {
     if (this.selectedImage?.id === image.id) {
       this.selectedImage = null;
     }
     
-    const updatedImages = this.allImages.filter(img => img.id !== image.id);
-    this.imagesSubject.next(updatedImages);
     this.imageService.deleteImage(image.id).subscribe({
+      next: () => {
+        const updatedImages = this.allImages.filter(img => img.id !== image.id);
+        this.imagesSubject.next(updatedImages);
+      },
       error: (error) => {
         console.error('Error deleting image:', error);
       }
