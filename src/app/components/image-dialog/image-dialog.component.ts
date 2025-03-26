@@ -3,17 +3,17 @@ import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { Image } from '../../services/image.service';
+import { ImageData } from '../../services/image.service';
 
 @Component({
   selector: 'app-image-dialog',
   standalone: true,
   imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
-    <h2 mat-dialog-title>{{ data.fileName }}</h2>
+    <h2 mat-dialog-title>{{ data.name }}</h2>
     <mat-dialog-content>
       <div class="image-container">
-        <img [src]="data.fileUrl" [alt]="data.fileName">
+        <img [src]="data.url" [alt]="data.name">
         <div class="image-info">
           <p><strong>Size:</strong> {{ formatFileSize(data.fileSize) }}</p>
           <p><strong>Uploaded:</strong> {{ data.uploadDate | date }}</p>
@@ -64,7 +64,7 @@ import { Image } from '../../services/image.service';
 export class ImageDialogComponent {
   constructor(
     public dialogRef: MatDialogRef<ImageDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: Image
+    @Inject(MAT_DIALOG_DATA) public data: ImageData
   ) {}
 
   formatFileSize(bytes: number): string {
@@ -76,9 +76,14 @@ export class ImageDialogComponent {
   }
 
   downloadImage() {
+    if (!this.data.url || !this.data.name) {
+      console.error('Image URL or name is missing');
+      return;
+    }
+    
     const link = document.createElement('a');
-    link.href = this.data.fileUrl;
-    link.download = this.data.fileName;
+    link.href = this.data.url;
+    link.download = this.data.name;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
