@@ -1,11 +1,8 @@
 {
-  "/api/*": {
-    "target": "http://localhost:5000",
+  "/api": {
+    "target": "http://localhost:5028",
     "secure": false,
     "changeOrigin": true,
-    "logLevel": "debug",
-    "pathRewrite": {
-      "^/api": ""
-    }
+    "logLevel": "debug"
   }
 } 

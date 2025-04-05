@@ -1,160 +1,167 @@
-# Image Viewer Application
+# Image Viewer Frontend
 
-A modern Angular application for viewing and editing images in a structured grid layout. This application allows users to load images from a local folder, view them in a 2×2 grid, and perform basic image editing operations like cropping and rotation.
-
-## Features
-
-- **Folder Selection**: Easy folder selection for loading multiple images at once
-- **Grid View**: Display images in a 2×2 grid layout
-- **Side Panel**: Additional images available in a scrollable side panel
-- **Image Editing**:
-  - Crop images with an interactive cropper
-  - Rotate images in 90-degree increments
-- **Responsive Design**: Works seamlessly on desktop and tablet devices
-- **Local Storage**: Images persist between sessions using browser storage
+A modern image gallery application built with Angular 17 and Angular Material, featuring image upload, editing, and management capabilities.
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
-- [Node.js](https://nodejs.org/) (version 16.x or higher)
-- [npm](https://www.npmjs.com/) (usually comes with Node.js)
-- [Angular CLI](https://angular.io/cli) (version 17.x)
+1. [Node.js](https://nodejs.org/) (v18.x or later)
+2. [Angular CLI](https://angular.io/cli) (v17.x)
+```bash
+npm install -g @angular/cli
+```
+3. Backend API running (see backend README)
 
-## Setup Instructions
+## Project Setup
 
-1. **Clone the Repository**
-   ```bash
-   git clone <repository-url>
-   cd ImageViewer/image-viewer-frontend
-   ```
+1. Clone the repository
+```bash
+git clone <repository-url>
+cd Image/ImageViewer
+```
 
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
+2. Install dependencies
+```bash
+npm install
+```
 
-3. **Install Required Angular Material Packages**
-   ```bash
-   ng add @angular/material
-   npm install ngx-image-cropper
-   ```
+3. Start the development server
+```bash
+ng serve
+```
 
-4. **Start Development Server**
-   ```bash
-   ng serve
-   ```
-
-5. **Access the Application**
-   - Open your browser and navigate to `http://localhost:4200`
-   - The application should now be running
+The application will be available at `http://localhost:4200`
 
 ## Project Structure
 
 ```
-image-viewer-frontend/
-├── src/
-│   ├── app/
-│   │   ├── components/
-│   │   │   ├── upload/
-│   │   │   │   └── upload.component.ts
-│   │   │   ├── gallery/
-│   │   │   │   └── gallery.component.ts
-│   │   │   └── image-editor/
-│   │   │       └── image-editor.component.ts
-│   │   ├── services/
-│   │   │   └── image.service.ts
-│   │   ├── models/
-│   │   │   └── image.model.ts
-│   │   ├── app.component.ts
-│   │   └── app.routes.ts
-│   ├── assets/
-│   └── styles.scss
-├── package.json
-└── angular.json
+src/
+├── app/
+│   ├── components/
+│   │   ├── gallery/          # Main gallery component
+│   │   ├── image-editor/     # Image editing dialog
+│   │   └── upload/           # Image upload component
+│   ├── services/
+│   │   └── image.service.ts  # Image management service
+│   ├── app.component.ts      # Root component
+│   └── app.module.ts         # Main module
+├── assets/                   # Static assets
+└── environments/            # Environment configurations
 ```
 
-## Component Overview
+## Features
 
-### 1. Upload Component
-- Entry point for loading images
-- Handles folder selection and image filtering
-- Routes to gallery view after successful upload
+- Modern, responsive UI with Angular Material
+- Drag and drop image upload
+- Image editing capabilities:
+  - Rotate
+  - Flip horizontal/vertical
+  - Save as new/update existing
+- Gallery view with grid layout
+- Image management (delete, download)
+- Real-time updates
 
-### 2. Gallery Component
-- Displays images in a 2×2 grid
-- Shows additional images in side panel
-- Enables drag-and-drop between panel and grid
-- Click on image opens editor dialog
+## Development
 
-### 3. Image Editor Component
-- Provides image editing capabilities
-- Crop functionality with aspect ratio control
-- Rotation controls
-- Save/Cancel options
+### Development server
 
-## Usage Guide
+Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
 
-1. **Loading Images**
-   - Click "Select Image Folder" button
-   - Choose a folder containing images
-   - Wait for images to load
-   - You'll be automatically redirected to the gallery view
+### Code scaffolding
 
-2. **Gallery View**
-   - Main grid shows up to 4 images
-   - Side panel shows all loaded images
-   - Drag images from panel to grid to rearrange
-   - Click any image to open editor
+Generate new components, services, etc.:
+```bash
+ng generate component components/new-component
+ng generate service services/new-service
+```
 
-3. **Editing Images**
-   - Click an image to open editor
-   - Use crop tool to select area
-   - Use rotation buttons to rotate image
-   - Click Save to keep changes or Cancel to discard
+### Build
 
-## Development Notes
+Build the project:
+```bash
+# Development build
+ng build
 
-### Key Dependencies
-- @angular/material: UI components
-- ngx-image-cropper: Image cropping functionality
-- @angular/cdk: Drag and drop functionality
+# Production build
+ng build --configuration production
+```
 
-### Browser Support
+The build artifacts will be stored in the `dist/` directory.
+
+## Dependencies
+
+- @angular/material - Material Design components
+- @angular/cdk - Component Dev Kit
+- ngx-image-cropper - Image editing functionality
+- rxjs - Reactive programming library
+
+## Configuration
+
+### Backend API Connection
+
+The backend API URL is configured in `src/app/services/image.service.ts`:
+```typescript
+private apiUrl = 'http://localhost:5028/api/image';
+```
+
+### Environment Configuration
+
+Environment-specific settings can be found in:
+- `src/environments/environment.ts` (development)
+- `src/environments/environment.prod.ts` (production)
+
+## Features in Detail
+
+### Gallery Component
+- Grid layout for image display
+- Drag and drop functionality
+- Image selection and preview
+- Quick actions (edit, delete, download)
+
+### Image Editor
+- Image cropping and rotation
+- Flip horizontal/vertical
+- Save as new image option
+- Real-time preview
+
+### Upload Component
+- Multiple file upload support
+- Progress indication
+- File type validation
+- Drag and drop support
+
+## Common Issues
+
+1. Image Upload Issues
+   - Check maximum file size limits
+   - Verify supported file types
+   - Ensure backend API is accessible
+
+2. Editor Issues
+   - Verify ngx-image-cropper installation
+   - Check browser compatibility
+   - Ensure sufficient memory for large images
+
+3. Gallery Loading Issues
+   - Check network connectivity
+   - Verify backend API status
+   - Check browser console for errors
+
+## Browser Support
+
+The application supports all modern browsers:
 - Chrome (latest)
 - Firefox (latest)
 - Edge (latest)
 - Safari (latest)
 
-### Local Storage
-- Images are stored in browser's localStorage
-- Maximum storage size depends on browser (usually 5-10 MB)
-- Clear browser data to reset storage
-
-## Troubleshooting
-
-1. **Images Not Loading**
-   - Check if folder contains supported image formats (JPG, PNG, GIF)
-   - Ensure images are not too large (recommend < 5MB each)
-   - Check browser console for specific errors
-
-2. **Editor Not Opening**
-   - Clear browser cache
-   - Check console for JavaScript errors
-   - Ensure all dependencies are installed correctly
-
-3. **Performance Issues**
-   - Reduce number of loaded images
-   - Check image sizes
-   - Clear browser cache and reload
-
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details
+This project is licensed under the MIT License.

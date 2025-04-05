@@ -35,9 +35,20 @@ import { BehaviorSubject } from 'rxjs';
           <div *ngIf="!selectedImage" class="drop-zone-content">
             <mat-icon>cloud_upload</mat-icon>
             <p>Drag and drop an image here to edit</p>
+            <input
+              type="file"
+              #fileInput
+              style="display: none"
+              (change)="onFileSelected($event)"
+              accept="image/*"
+              multiple
+            />
+            <button mat-raised-button color="primary" (click)="fileInput.click()">
+              Upload Images
+            </button>
           </div>
           <mat-card *ngIf="selectedImage" class="image-card" cdkDrag [cdkDragDisabled]="true">
-            <img [src]="selectedImage.url" [alt]="selectedImage.name">
+            <img [src]="getImageUrl(selectedImage.id)" [alt]="selectedImage.name">
             <div class="image-overlay">
               <button mat-icon-button color="primary" (click)="openEditor(selectedImage)">
                 <mat-icon>edit</mat-icon>
@@ -66,7 +77,7 @@ import { BehaviorSubject } from 'rxjs';
                cdkDrag
                [class.selected]="selectedImage?.id === image.id"
                (click)="selectImage(image)">
-            <img [src]="image.url" [alt]="image.name">
+            <img [src]="getImageUrl(image.id)" [alt]="image.name">
             <div class="image-item-overlay">
               <button mat-icon-button (click)="$event.stopPropagation(); openEditor(image)">
                 <mat-icon>edit</mat-icon>
@@ -283,30 +294,37 @@ export class GalleryComponent implements OnInit {
   }
 
   constructor(
-    private imageService: ImageService,
+    public imageService: ImageService,
     private dialog: MatDialog
   ) {}
 
+  // Public method to get image URL
+  getImageUrl(id: number): string {
+    return this.imageService.getImageUrl(id);
+  }
+
   ngOnInit() {
-    this.loadImages();
-    
-    // Subscribe to image updates
-    this.imagesSubject.subscribe(images => {
+    // Subscribe to image service updates
+    this.imageService.getImages().subscribe(images => {
+      console.log('Received images update:', images);
       this.allImages = images;
-      // Update selected image reference if it exists in the new image list
+      this.imagesSubject.next(images);
+      
+      // If we have a selected image, update its data
       if (this.selectedImage) {
         const updatedImage = images.find(img => img.id === this.selectedImage?.id);
-        if (updatedImage) {
-          this.selectedImage = updatedImage;
-        }
+        this.selectedImage = updatedImage || null;
       }
     });
+
+    // Force a refresh of images when component initializes
+    this.loadImages();
   }
 
   loadImages() {
-    this.imageService.getImages().subscribe(images => {
-      this.imagesSubject.next(images);
-    });
+    console.log('Loading images...');
+    // This will trigger a new HTTP request to get fresh data
+    this.imageService.loadImages();
   }
 
   selectImage(image: ImageData) {
@@ -333,49 +351,34 @@ export class GalleryComponent implements OnInit {
   }
 
   openEditor(image: ImageData) {
-    console.log('Opening editor for image:', image);
     const dialogRef = this.dialog.open(ImageEditorComponent, {
-      width: '90vw',
-      maxWidth: '1200px',
-      data: { image }
+      width: '800px',
+      height: '600px',
+      data: { 
+        imageUrl: this.imageService.getImageUrl(image.id),
+        name: image.name
+      }
     });
 
     dialogRef.afterClosed().subscribe(result => {
-      console.log('Editor closed with result:', result);
-      if (result) {
+      if (result?.file) {
         if (result.saveAsNew) {
-          console.log('Saving as new image');
-          const newImage: ImageData = {
-            id: Date.now().toString() + Math.random().toString(36).substring(2),
-            name: `edited_${image.name}`,
-            file: result.file
-          };
-
-          this.imageService.saveNewImage(newImage).subscribe({
-            next: (savedImage) => {
-              console.log('New image saved:', savedImage);
-              // Clear the workspace
-              this.selectedImage = null;
-              // Refresh the images list
+          // Upload as new image
+          this.imageService.uploadImages([result.file]).subscribe({
+            next: (uploadedImages) => {
+              console.log('New image uploaded:', uploadedImages);
               this.loadImages();
             },
             error: (error) => {
-              console.error('Error saving new image:', error);
+              console.error('Error uploading new image:', error);
             }
           });
         } else {
-          console.log('Updating existing image');
+          // Update existing image
           this.imageService.updateImage(image.id, result.file).subscribe({
             next: (updatedImage) => {
               console.log('Image updated:', updatedImage);
-              if (updatedImage) {
-                const updatedImages = this.allImages.map(img => 
-                  img.id === updatedImage.id ? updatedImage : img
-                );
-                this.imagesSubject.next(updatedImages);
-                this.selectedImage = updatedImage;
-                console.log('Gallery updated with edited image');
-              }
+              this.loadImages();
             },
             error: (error) => {
               console.error('Error updating image:', error);
@@ -387,10 +390,8 @@ export class GalleryComponent implements OnInit {
   }
 
   downloadImage(image: ImageData) {
-    if (!image.url) return;
-    
     const link = document.createElement('a');
-    link.href = image.url;
+    link.href = this.imageService.getImageUrl(image.id);
     link.download = image.name;
     document.body.appendChild(link);
     link.click();
@@ -398,19 +399,38 @@ export class GalleryComponent implements OnInit {
   }
 
   deleteImage(image: ImageData) {
-    if (this.selectedImage?.id === image.id) {
-      this.selectedImage = null;
+    if (confirm(`Are you sure you want to delete ${image.name}?`)) {
+      this.imageService.deleteImage(image.id).subscribe({
+        next: () => {
+          if (this.selectedImage?.id === image.id) {
+            this.selectedImage = null;
+          }
+        },
+        error: (error: Error) => {
+          console.error('Error deleting image:', error);
+        }
+      });
     }
-    
-    this.imageService.deleteImage(image.id).subscribe({
-      next: () => {
-        const updatedImages = this.allImages.filter(img => img.id !== image.id);
-        this.imagesSubject.next(updatedImages);
-      },
-      error: (error) => {
-        console.error('Error deleting image:', error);
-      }
-    });
+  }
+
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      const files = Array.from(input.files);
+      console.log(`Uploading ${files.length} files...`);
+      
+      this.imageService.uploadImages(files).subscribe({
+        next: (uploadedImages) => {
+          console.log('Upload completed:', uploadedImages);
+          // Refresh the image list after upload
+          this.loadImages();
+        },
+        error: (error) => {
+          console.error('Upload failed:', error);
+          // You might want to show an error message to the user here
+        }
+      });
+    }
   }
 }
 

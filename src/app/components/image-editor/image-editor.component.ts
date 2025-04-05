@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,6 +7,8 @@ import { FormsModule } from '@angular/forms';
 import { ImageCropperComponent, ImageCroppedEvent } from 'ngx-image-cropper';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-image-editor',
@@ -26,7 +28,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
       
       <div class="editor-content">
         <image-cropper
-          [imageFile]="data.image.file"
+          [imageURL]="data.imageUrl"
           [maintainAspectRatio]="true"
           [aspectRatio]="4/3"
           [resizeToWidth]="800"
@@ -116,7 +118,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
     }
   `]
 })
-export class ImageEditorComponent {
+export class ImageEditorComponent implements OnInit {
   saveAsNew = false;
   croppedImage: ImageCroppedEvent | null = null;
   rotation = 0;
@@ -129,10 +131,13 @@ export class ImageEditorComponent {
 
   constructor(
     public dialogRef: MatDialogRef<ImageEditorComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: any,
-    private snackBar: MatSnackBar
-  ) {
-    console.log('Editor opened with image:', data.image);
+    @Inject(MAT_DIALOG_DATA) public data: { imageUrl: string, name: string },
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
+
+  ngOnInit() {
+    console.log('Editor opened with image URL:', this.data.imageUrl);
   }
 
   imageCropped(event: ImageCroppedEvent) {
@@ -173,25 +178,21 @@ export class ImageEditorComponent {
   }
 
   downloadEditedImage() {
-    console.log('Attempting to download image');
     if (!this.croppedImage?.blob) {
-      console.error('No cropped image blob available');
       this.snackBar.open('No image to download', 'Close', { duration: 3000 });
       return;
     }
 
     try {
-      // Create download link using the blob directly
       const url = window.URL.createObjectURL(this.croppedImage.blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `edited_${this.data.image.name}`;
+      link.download = `edited_${this.data.name}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      console.log('Download completed');
       this.snackBar.open('Image downloaded successfully', 'Close', { duration: 3000 });
     } catch (error) {
       console.error('Error downloading image:', error);
@@ -200,27 +201,19 @@ export class ImageEditorComponent {
   }
 
   async save() {
-    console.log('Save initiated');
     if (!this.croppedImage?.blob) {
-      console.error('No cropped image blob available');
       this.snackBar.open('No image to save', 'Close', { duration: 3000 });
       return;
     }
 
     try {
-      console.log('Processing cropped image');
-      
-      // Create file from blob directly
-      const fileName = this.saveAsNew ? `edited_${this.data.image.name}` : this.data.image.name;
+      const fileName = this.saveAsNew ? `edited_${this.data.name}` : this.data.name;
       const file = new File([this.croppedImage.blob], fileName, { type: 'image/png' });
       
-      console.log('Closing dialog with result:', { file, saveAsNew: this.saveAsNew });
       this.dialogRef.close({
         file,
         saveAsNew: this.saveAsNew
       });
-      
-      this.snackBar.open('Image saved successfully', 'Close', { duration: 3000 });
     } catch (error) {
       console.error('Error saving image:', error);
       this.snackBar.open('Failed to save image', 'Close', { duration: 3000 });

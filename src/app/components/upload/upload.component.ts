@@ -139,18 +139,37 @@ export class UploadComponent {
       return;
     }
 
+    console.log(`Attempting to upload ${files.length} images`);
+    files.forEach(file => {
+      console.log(`File to upload: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
+    });
+
     // Upload the files using the ImageService
     this.imageService.uploadImages(files).subscribe({
       next: (images) => {
-        console.log(`Loaded ${images.length} images successfully`);
-        this.router.navigate(['/gallery']);
+        console.log('Upload response:', images);
+        if (images && images.length > 0) {
+          console.log(`Successfully uploaded ${images.length} images`);
+          this.router.navigate(['/gallery']);
+        } else {
+          this.error = 'No images were uploaded successfully';
+        }
       },
       error: (error) => {
-        console.error('Error loading images:', error);
-        this.error = 'Failed to load images: ' + error.message;
+        console.error('Upload error:', error);
+        if (error.status === 413) {
+          this.error = 'Files are too large. Please try uploading fewer or smaller images.';
+        } else if (error.status === 415) {
+          this.error = 'Unsupported file type. Please ensure all files are valid images.';
+        } else if (error.status === 0) {
+          this.error = 'Cannot connect to the server. Please check your connection.';
+        } else {
+          this.error = `Upload failed: ${error.message || 'Unknown error'}`;
+        }
       },
       complete: () => {
         this.loading = false;
+        console.log('Upload operation completed');
       }
     });
   }
